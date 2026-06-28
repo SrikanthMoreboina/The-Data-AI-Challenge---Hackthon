@@ -6,17 +6,25 @@ text normalization, and employer background classification.
 """
 
 import json
+import gzip
 from recruiter_pipeline.hiring_rubric import IT_SERVICES_FIRMS
 
 def stream_candidates(file_path):
     """
-    Streams candidates from a .jsonl file line-by-line.
+    Streams candidates from a .jsonl or .jsonl.gz file line-by-line.
     This prevents loading the entire 465MB file into RAM at once.
     """
-    with open(file_path, "r", encoding="utf-8") as f:
+    file_path_str = str(file_path)
+    if file_path_str.endswith(".gz"):
+        open_func = lambda fp: gzip.open(fp, "rt", encoding="utf-8")
+    else:
+        open_func = lambda fp: open(fp, "r", encoding="utf-8")
+        
+    with open_func(file_path) as f:
         for line in f:
             if line.strip():
                 yield json.loads(line)
+
 
 def normalize_text(text):
     """
