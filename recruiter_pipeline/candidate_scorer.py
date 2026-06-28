@@ -15,13 +15,14 @@ from recruiter_pipeline.resume_screener import parse_date_string, REFERENCE_DATE
 
 def calculate_base_score(candidate):
     """
-    Calculates the candidate's core technical base score (0 to 100 points).
+    Calculates the candidate's core technical base score (0 to 100 points)
+    with hybrid scaling for skill depth (log-endorsements & capped duration).
     """
     profile = candidate.get("profile", {})
     skills = candidate.get("skills", [])
     career_history = candidate.get("career_history", [])
     
-    # 1. Compile a single lowercase text pool of all profile copy for quick lookup
+    # 1. Compile a lowercase text pool of all profile copy for quick lookup
     headline = normalize_text(profile.get("headline", ""))
     summary = normalize_text(profile.get("summary", ""))
     
@@ -43,13 +44,36 @@ def calculate_base_score(candidate):
         
         # Check if any keyword matches their skills set OR exists inside text pool
         matched = False
+        matched_skill_obj = None
+        
         for kw in keywords:
-            if kw in candidate_skills or kw in text_pool:
+            # Check explicit skills array
+            for s in skills:
+                if normalize_text(s.get("name", "")) == kw:
+                    matched = True
+                    matched_skill_obj = s
+                    break
+            if matched:
+                break
+            # Check text pool
+            if kw in text_pool:
                 matched = True
                 break
                 
         if matched:
-            base_score += points
+            if matched_skill_obj:
+                endorsements = matched_skill_obj.get("endorsements", 0)
+                duration = matched_skill_obj.get("duration_months", 0)
+                
+                # Diminishing returns: cap duration at 24 months
+                capped_duration = min(24, duration)
+                # Power-law normalization: log-scale endorsements
+                log_ends = math.log2(1 + endorsements)
+                
+                F_depth = 1.0 + 0.05 * log_ends + 0.05 * (capped_duration / 12.0)
+                base_score += points * F_depth
+            else:
+                base_score += points
             
     # 3. Job Title Alignment Check
     current_title = normalize_text(profile.get("current_title", ""))
@@ -91,8 +115,13 @@ def calculate_multipliers(candidate):
     elif years_exp < 5.0:
         M_exp = max(0.1, 0.1 * years_exp)  # Linear scale down for juniors
     else:
-        # Scale down gradually for seniors (e.g. 15 years exp gets ~0.7)
-        M_exp = max(0.5, 1.0 - 0.05 * (years_exp - 9.0))
+        # Senior candidate check. Active coder override on Github cancels penalty.
+        github_score = signals.get("github_activity_score", -1)
+        if github_score >= 70:
+            M_exp = 1.0  # Active coder override (no seniority penalty)
+        else:
+            # Scale down gradually for seniors (e.g. 15 years exp gets ~0.7)
+            M_exp = max(0.5, 1.0 - 0.05 * (years_exp - 9.0))
         
     # --- B. Location Multiplier ---
     city = normalize_text(profile.get("location", ""))
@@ -143,12 +172,17 @@ def calculate_multipliers(candidate):
 def evaluate_candidate_score(candidate):
     """
     Evaluates and calculates the final normalized match score (0.0 to 1.0)
-    for a candidate profile.
+    for a candidate profile, incorporating Tier-1 academic bonus.
     """
     base_score = calculate_base_score(candidate)
     M_exp, M_loc, M_emp, M_avail = calculate_multipliers(candidate)
     
-    final_score = base_score * M_exp * M_loc * M_emp * M_avail
+    # --- E. Pedigree Modifier ---
+    education = candidate.get("education", [])
+    has_tier_1 = any(edu.get("tier") == "tier_1" for edu in education)
+    M_pedigree = 1.05 if has_tier_1 else 1.0
+    
+    final_score = base_score * M_exp * M_loc * M_emp * M_avail * M_pedigree
     
     # Normalize score between 0.0 and 1.0 (base score is out of 100 max)
     normalized_score = final_score / 100.0
