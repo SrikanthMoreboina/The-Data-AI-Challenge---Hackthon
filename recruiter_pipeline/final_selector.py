@@ -49,8 +49,8 @@ def select_top_candidates(candidates_path, output_csv_path, debug_csv_path):
             screened_out += 1
             continue
             
-        # Score candidate
-        score = evaluate_candidate_score(candidate)
+        # Score candidate and round to 4 decimal places to prevent decimal-tie validation errors
+        score = round(evaluate_candidate_score(candidate), 4)
         candidate_id = candidate.get("candidate_id")
         
         # Construct heap item: (key, candidate_id, score, candidate_data)
