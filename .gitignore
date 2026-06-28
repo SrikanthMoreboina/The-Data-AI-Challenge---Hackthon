@@ -1,0 +1,25 @@
+# Hackathon Candidate Data
+datasets/
+*.jsonl
+*.jsonl.gz
+
+# Outputs
+outputs/
+*.csv
+
+# Environments and Sensitive Configuration
+.env
+.env.*
+.venv/
+env/
+venv/
+ENV/
+
+# Python Cache and System Files
+__pycache__/
+*.py[cod]
+*$py.class
+.DS_Store
+.gemini/
+.agents/scratch/
+.agents/browser_recordings/
