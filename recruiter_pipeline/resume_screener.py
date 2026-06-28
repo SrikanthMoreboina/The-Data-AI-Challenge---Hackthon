@@ -5,21 +5,23 @@ Pre-screens candidates for logical contradictions (honeypots)
 and obvious role disqualifications.
 """
 
-from datetime import datetime, date
+from datetime import date
 
 # Standard reference date for "current" jobs (since dataset is from mid-2026)
 REFERENCE_DATE = date(2026, 6, 30)
 
 def parse_date_string(date_str):
     """
-    Parses 'YYYY-MM-DD' date string into a date object.
+    Parses 'YYYY-MM-DD' date string into a date object using fast integer splits.
     """
-    if not date_str:
+    if not date_str or len(date_str) != 10:
         return None
     try:
-        return datetime.strptime(date_str, "%Y-%m-%d").date()
-    except (ValueError, TypeError):
+        parts = date_str.split("-")
+        return date(int(parts[0]), int(parts[1]), int(parts[2]))
+    except (ValueError, IndexError, TypeError):
         return None
+
 
 def get_month_difference(start_date, end_date):
     """
