@@ -1,0 +1,2 @@
+# No external dependencies required.
+# The ranking pipeline runs offline on Python 3.8+ standard libraries.

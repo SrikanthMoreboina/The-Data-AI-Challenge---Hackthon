@@ -1,0 +1,73 @@
+# Redrob Hackathon — Submission Metadata
+# The fields here match portal details for verification.
+
+# ============================================================================
+# Team identity
+# ============================================================================
+team_name: "Redrob AI Agent Recruiter Team"
+
+primary_contact:
+  name: "Srikanth Moreboina"
+  email: "srikanth.moreboina@example.com"
+  phone: "+91-9999999999"
+
+team_members:
+  - name: "Srikanth Moreboina"
+    email: "srikanth.moreboina@example.com"
+    role: "System Designer & ML Engineer"
+
+# ============================================================================
+# Code and reproducibility
+# ============================================================================
+github_repo: "https://github.com/SrikanthMoreboina/The-Data-AI-Challenge---Hackthon"
+
+sandbox_link: "https://github.com/SrikanthMoreboina/The-Data-AI-Challenge---Hackthon"
+
+reproduce_command: "python rank.py --candidates ./datasets/[PUB] India_runs_data_and_ai_challenge/[PUB] India_runs_data_and_ai_challenge/India_runs_data_and_ai_challenge/candidates.jsonl --out ./outputs/submission.csv"
+
+# ============================================================================
+# Compute environment
+# ============================================================================
+compute:
+  platform: "Local Intel Core i7 PC"
+  cpu_cores: 8
+  ram_gb: 16
+  python_version: "3.11.4"
+  os: "Windows 11"
+  uses_gpu_for_inference: false
+  has_network_during_ranking: false
+  pre_computation_required: false
+  pre_computation_time_minutes: 0
+
+# ============================================================================
+# AI tools declaration
+# ============================================================================
+ai_tools_used:
+  - "Claude"
+  - "Gemini Antigravity"
+
+ai_usage_summary: |
+  Used Gemini Antigravity for pipeline coding, math formulation, and refactoring.
+  Used Claude for architecture review. No candidate data was sent to online APIs.
+
+# ============================================================================
+# Approach summary
+# ============================================================================
+methodology_summary: |
+  Deterministic offline pipeline modeling a recruitment agency workspace. Uses streaming 
+  ingestion and a Min-Heap select mechanism to maintain constant-bounded memory footprint 
+  over 100,000 candidates. Features logical honeypot screening and non-linear scoring weight 
+  multipliers (experience sweet spot, location-willingness, product vs services classification, 
+  and exponential activity decay). Includes log-scaled skill endorsements and capped durations 
+  to suppress popularity bias, plus pedigree bonuses and GitHub coding seniority offset.
+  Runtime is under 20 seconds on single-threaded CPU.
+
+# ============================================================================
+# Declarations
+# ============================================================================
+declarations:
+  read_submission_spec: true
+  code_is_original_work: true
+  no_collusion: true
+  honeypot_check_done: true
+  reproduction_tested: true
