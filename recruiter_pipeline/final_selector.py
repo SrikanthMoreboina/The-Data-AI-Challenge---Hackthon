@@ -1,13 +1,10 @@
-# recruiter_pipeline/final_selector.py
-"""
-Final Selector.
-Orchestrates the pipeline: screens, scores, sorts, and writes output files.
-"""
-
 import heapq
 import csv
+import json
+import gzip
+import multiprocessing
 from pathlib import Path
-from recruiter_pipeline.resume_fetcher import stream_candidates, classify_employer_history
+from recruiter_pipeline.resume_fetcher import classify_employer_history
 from recruiter_pipeline.resume_screener import screen_candidate
 from recruiter_pipeline.candidate_scorer import evaluate_candidate_score
 from recruiter_pipeline.interview_prober import generate_reasoning, generate_interview_probes
@@ -25,44 +22,84 @@ def get_heap_key(score, candidate_id):
         id_num = 0
     return (score, -id_num)
 
+def process_single_candidate(candidate_raw_str):
+    """
+    Worker process target function: parses, screens, and scores a single candidate.
+    Returns (score, candidate_id, candidate) or None if screened out.
+    """
+    if not candidate_raw_str.strip():
+        return None
+    try:
+        candidate = json.loads(candidate_raw_str)
+    except json.JSONDecodeError:
+        return None
+        
+    is_passed, reason = screen_candidate(candidate)
+    if not is_passed:
+        return None
+        
+    # Score candidate and round to 4 decimal places to prevent decimal-tie validation errors
+    score = round(evaluate_candidate_score(candidate), 4)
+    candidate_id = candidate.get("candidate_id")
+    return (score, candidate_id, candidate)
+
+def stream_raw_lines(file_path):
+    """
+    Streams raw lines from a .jsonl or .jsonl.gz file to workers.
+    """
+    file_path_str = str(file_path)
+    if file_path_str.endswith(".gz"):
+        open_func = lambda fp: gzip.open(fp, "rt", encoding="utf-8")
+    else:
+        open_func = lambda fp: open(fp, "r", encoding="utf-8")
+        
+    with open_func(file_path) as f:
+        for line in f:
+            if line.strip():
+                yield line
+
 def select_top_candidates(candidates_path, output_csv_path, debug_csv_path):
     """
-    Ingests all candidates, filters out honeypots/unqualified,
+    Ingests all candidates using a multiprocessing Pool, filters out honeypots/unqualified,
     scores and streams the top 100 candidates into a bounded Min-Heap,
     and exports submission and debug CSVs.
     """
     heap = []
     
-    # 1. Stream, Screen, and Score using a Min-Heap
-    print(f"Streaming and scoring candidates from: {candidates_path}")
+    # 1. Stream, Screen, and Score using a Multiprocessing Pool
+    print(f"Streaming and scoring candidates in parallel from: {candidates_path}")
     count = 0
     screened_out = 0
     
-    for candidate in stream_candidates(candidates_path):
-        count += 1
-        if count % 10000 == 0:
-            print(f"Processed {count} profiles...")
-            
-        # Run pre-screening checks
-        is_passed, reason = screen_candidate(candidate)
-        if not is_passed:
-            screened_out += 1
-            continue
-            
-        # Score candidate and round to 4 decimal places to prevent decimal-tie validation errors
-        score = round(evaluate_candidate_score(candidate), 4)
-        candidate_id = candidate.get("candidate_id")
+    # Determine CPU cores count
+    num_cores = max(1, multiprocessing.cpu_count())
+    print(f"Spawning worker pool with {num_cores} cores...")
+    
+    with multiprocessing.Pool(processes=num_cores) as pool:
+        # Use imap to process candidates in chunks lazily to save memory
+        results = pool.imap(process_single_candidate, stream_raw_lines(candidates_path), chunksize=1000)
         
-        # Construct heap item: (key, candidate_id, score, candidate_data)
-        key = get_heap_key(score, candidate_id)
-        item = (key, candidate_id, score, candidate)
-        
-        if len(heap) < 100:
-            heapq.heappush(heap, item)
-        else:
-            # Compare current key with the heap root (worst key in top-100)
-            if key > heap[0][0]:
-                heapq.heappushpop(heap, item)
+        for result in results:
+            count += 1
+            if count % 10000 == 0:
+                print(f"Processed {count} profiles...")
+                
+            if result is None:
+                screened_out += 1
+                continue
+                
+            score, candidate_id, candidate = result
+            
+            # Construct heap item: (key, candidate_id, score, candidate_data)
+            key = get_heap_key(score, candidate_id)
+            item = (key, candidate_id, score, candidate)
+            
+            if len(heap) < 100:
+                heapq.heappush(heap, item)
+            else:
+                # Compare current key with the heap root (worst key in top-100)
+                if key > heap[0][0]:
+                    heapq.heappushpop(heap, item)
                 
     print(f"Total parsed: {count} | Passed screening: {count - screened_out} | Screened out: {screened_out}")
     print(f"Heap final size: {len(heap)}")
