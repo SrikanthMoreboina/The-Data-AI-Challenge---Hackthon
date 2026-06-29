@@ -84,6 +84,19 @@ IT_SERVICES_FIRMS = {
     "l&t", "larsen & toubro", "lti", "dxc technology", "genpact", "wns", "mphasis"
 }
 
+# 5. Non-Technical / Blocker Job Titles (unrelated to hands-on AI/ML development)
+NON_TECH_TITLES = {
+    "marketing", "sales", "writer", "hr specialist", "recruiter", "graphic designer", 
+    "content creator", "product manager", "project manager", "scrum master", "analyst"
+}
+
+# 6. Tutorial / Classroom learning context markers (indicates non-production toy projects)
+TUTORIAL_INDICATORS = {
+    "tutorial", "bootcamp", "course project", "dummy project", "toy project", 
+    "udemy", "coursera", "class project", "classroom", "academic project"
+}
+
+
 EMPLOYER_MULTIPLIERS = {
     "product_only": 1.1,      # Only startup or product company history
     "hybrid": 0.8,            # Mix of IT services and product history

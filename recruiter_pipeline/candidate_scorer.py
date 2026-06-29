@@ -8,7 +8,8 @@ import math
 from datetime import date
 from recruiter_pipeline.hiring_rubric import (
     SKILL_WEIGHTS, TITLE_WEIGHTS, LOCATION_MULTIPLIERS, 
-    EMPLOYER_MULTIPLIERS, TARGET_HUBS, TIER_1_INDIAN_CITIES
+    EMPLOYER_MULTIPLIERS, TARGET_HUBS, TIER_1_INDIAN_CITIES,
+    NON_TECH_TITLES, TUTORIAL_INDICATORS
 )
 from recruiter_pipeline.resume_fetcher import normalize_text, classify_employer_history
 from recruiter_pipeline.resume_screener import parse_date_string, REFERENCE_DATE
@@ -16,38 +17,27 @@ from recruiter_pipeline.resume_screener import parse_date_string, REFERENCE_DATE
 def calculate_base_score(candidate):
     """
     Calculates the candidate's core technical base score (0 to 100 points)
-    with hybrid scaling for skill depth (log-endorsements & capped duration).
+    with hybrid scaling for skill depth, title blocking, and learning/tutorial filters.
     """
     profile = candidate.get("profile", {})
     skills = candidate.get("skills", [])
     career_history = candidate.get("career_history", [])
     
-    # 1. Compile a lowercase text pool of all profile copy for quick lookup
     headline = normalize_text(profile.get("headline", ""))
     summary = normalize_text(profile.get("summary", ""))
     
-    text_pool = f"{headline} {summary}"
-    for job in career_history:
-        desc = normalize_text(job.get("description", ""))
-        title = normalize_text(job.get("title", ""))
-        text_pool += f" {desc} {title}"
-        
-    # Get set of candidate's explicit skills (lowercased)
-    candidate_skills = {normalize_text(s.get("name", "")) for s in skills}
-    
     base_score = 0.0
     
-    # 2. Check each skill group weights
+    # Check each skill group weights
     for group_name, info in SKILL_WEIGHTS.items():
         points = info["points"]
         keywords = info["keywords"]
         
-        # Check if any keyword matches their skills set OR exists inside text pool
         matched = False
         matched_skill_obj = None
         
         for kw in keywords:
-            # Check explicit skills array
+            # A. Check explicit skills array (highest trust)
             for s in skills:
                 if normalize_text(s.get("name", "")) == kw:
                     matched = True
@@ -55,9 +45,38 @@ def calculate_base_score(candidate):
                     break
             if matched:
                 break
-            # Check text pool
-            if kw in text_pool:
+                
+            # B. Check Headline (high trust, very short summary of self)
+            if kw in headline:
                 matched = True
+                break
+                
+            # C. Check Summary (verify learning indicators)
+            if kw in summary:
+                has_tutorial = any(ind in summary for ind in TUTORIAL_INDICATORS)
+                if not has_tutorial:
+                    matched = True
+                    break
+                    
+            # D. Check Career History (verify non-tech role blockers and learning indicators)
+            for job in career_history:
+                job_title = normalize_text(job.get("title", ""))
+                
+                # Blocker check: Skip if it's a non-tech role
+                is_non_tech = any(non_tech in job_title for non_tech in NON_TECH_TITLES)
+                if is_non_tech:
+                    continue
+                    
+                job_desc = normalize_text(job.get("description", ""))
+                full_job_text = f"{job_title} {job_desc}"
+                
+                if kw in full_job_text:
+                    # Check if job description contains tutorial keywords
+                    has_tutorial = any(ind in job_desc for ind in TUTORIAL_INDICATORS)
+                    if not has_tutorial:
+                        matched = True
+                        break
+            if matched:
                 break
                 
         if matched:
