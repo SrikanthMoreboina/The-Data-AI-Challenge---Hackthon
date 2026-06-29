@@ -13,7 +13,8 @@ graph TD
     SD --> ML[ML Engineer Agent]
     DE --> ML
     ML --> R[Reviewer Agent]
-    R --> Final[Submission CSV]
+    R --> DO[DevOps Engineer Agent]
+    DO --> Final[Submission CSV]
 ```
 
 ### 1. Planner Agent
@@ -35,6 +36,11 @@ graph TD
 ### 5. Reviewer Agent
 - **Objective**: Executes strict honeypot validation filters, enforces safety/security limits, validates CSV format, and writes high-quality custom reasoning descriptions.
 - **Core Skill**: [Reviewer Skill](skills/reviewer/SKILL.md)
+
+### 6. DevOps Engineer Agent
+- **Objective**: Builds reproducible, isolated sandbox containment layouts (Dockerfiles and run configurations) to verify 100% offline, zero-dependency executions.
+- **Core Skill**: [DevOps Engineer Skill](skills/devops_engineer/SKILL.md)
+
 
 ---
 

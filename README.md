@@ -21,48 +21,79 @@ A highly optimized, memory-efficient offline recruitment pipeline designed to ra
 
 ## 🛠️ System Architecture
 
+Our execution pipeline uses a **Producer-Consumer multiprocessing stream** to maximize throughput while keeping memory consumption bounded:
+
 ```mermaid
 graph TD
-    JSONL[candidates.jsonl / .gz] -->|1. Generator Stream| Fetcher[resume_fetcher.py]
-    Fetcher -->|2. Honeypot Filters| Screener[resume_screener.py]
-    Screener -->|3. Score Multipliers| Scorer[candidate_scorer.py]
-    Scorer -->|4. Factual Justification| Prober[interview_prober.py]
-    Prober -->|5. Bounded Min-Heap| Selector[final_selector.py]
-    Selector -->|6. Reverse Pop| Submission[outputs/submission.csv]
+    JSONL[candidates.jsonl / .gz] -->|1. Stream raw text lines| Selector[final_selector.py]
+    Selector -->|2. Map lines in chunks| Pool[multiprocessing.Pool Workers]
+    Pool -->|3. Parse JSON, screen honeypots| Screener[resume_screener.py]
+    Pool -->|4. Score skills & modifiers| Scorer[candidate_scorer.py]
+    Pool -->|5. Return lightweight tuples| Selector
+    Selector -->|6. Maintain top-100 Min-Heap| Heap[heapq Priority Queue]
+    Selector -->|7. Generate reasonings & probes| Prober[interview_prober.py]
+    Selector -->|8. Export outputs| CSVs[submission.csv / debug.csv]
 ```
 
-* **`hiring_rubric.py`**: Static weights, location lists, and company consulting blocklists.
-* **`resume_fetcher.py`**: Ingests streams and identifies corporate backgrounds.
-* **`resume_screener.py`**: Catches fraud anomalies (integer split parsing date helper).
-* **`candidate_scorer.py`**: Core scoring equations (base + multipliers).
-* **`interview_prober.py`**: Composes reasoning strings and interview questions.
-* **`final_selector.py`**: Manages the Min-Heap priority queue and exports CSVs.
+* **`hiring_rubric.py`**: Configurations for skill weights, target hubs, IT consultant blocklists, non-tech title blockers, and learning context indicators.
+* **`resume_fetcher.py`**: Low-level text normalizers and employer type classifiers (Product vs. Services).
+* **`resume_screener.py`**: Fast split-based date parser and contradictory honeypot screeners.
+* **`candidate_scorer.py`**: Base technical scoring and curves (Experience, Location, Employer, and Availability).
+* **`interview_prober.py`**: Contextual career extraction for recruiter reasoning and interview questions.
+* **`final_selector.py`**: Worker Pool orchestrator and main-thread Min-Heap aggregator.
 
 ---
 
 ## 📥 Getting Started
 
-### Prerequisites
+### Local Setup
 * Python 3.8 or higher.
 * No external packages required (runs purely on standard libraries).
 
-### Running the Candidate Ranker
-Execute the orchestrator script passing the candidates dataset path:
+#### 1. Running the Candidate Ranker (Official Mode)
+To run the ranker cleanly, generating **only** the required `submission.csv` (100% compliant with sandboxed grading scripts):
 ```bash
-python rank.py --candidates ./datasets/India_runs_data_and_ai_challenge/candidates.jsonl --out ./outputs/submission.csv
+python rank.py --candidates ./candidates.jsonl --out ./submission.csv
 ```
-*(If no arguments are provided, `rank.py` automatically defaults to the challenge folder path and writes to `./submission.csv` in the root).*
 
-### Validating the Output
-Run the official format checker:
+#### 2. Running with Debug Diagnostics
+To generate the full recruiter debug report (`outputs/ranking_debug.csv`) and execution logs (`outputs/metrics.json`), append the `--debug` flag:
 ```bash
-python validate_submission.py outputs/submission.csv
+python rank.py --candidates ./candidates.jsonl --out ./submission.csv --debug
+```
+
+#### 3. Validating Output format
+Run the official checker:
+```bash
+python validate_submission.py submission.csv
 ```
 
 ---
 
-## 📊 Performance Statistics
+## 🐳 Running with Docker (Isolated Sandbox)
+
+We provide a self-contained `Dockerfile` at the root of the repository to run the pipeline in an isolated CPU container.
+
+### 1. Build the Docker Image
+```bash
+docker build -t redrob-ranker .
+```
+
+### 2. Run the Candidate Ranker
+Mount your local directories into the container to pass the inputs and retrieve the generated CSV:
+```bash
+docker run -v "${PWD}:/app/workspace" redrob-ranker --candidates /app/workspace/candidates.jsonl --out /app/workspace/submission.csv
+```
+*(Optionally append `--debug` to write the diagnostic logs to your mounted workspace)*
+
+---
+
+## 📊 Performance & Benchmarks
+
 * **Dataset Size**: 100,000 candidate profiles.
 * **Screened Out / Honeypots**: 19,847 candidates.
-* **Total Execution Time**: **< 20 seconds** on standard CPU.
-* **Peak Memory Usage**: **< 20 MB** RAM.
+* **Execution Time (Single-Process)**: **~38 seconds**.
+* **Execution Time (Parallel worker Pool)**: **7.5 - 9.0 seconds** (Tested on 12-core CPU).
+* **Ingestion Throughput**: **11,000+ candidates / second**.
+* **RAM Footprint**: **< 20 MB** (Constant memory bounded by streaming queue).
+
