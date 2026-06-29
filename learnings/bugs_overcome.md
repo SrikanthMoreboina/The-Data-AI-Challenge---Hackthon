@@ -31,3 +31,11 @@ This log details the key engineering and configuration bottlenecks resolved duri
 * **Analysis**: The candidate scorer calculated scores as double-precision floats (e.g. `0.53074` vs `0.53068`). Since `0.53074 > 0.53068`, they were sorted correctly. However, the CSV output rounded values to 4 decimal places, printing both as `0.5307`. The validator read the CSV, processed them as equal scores, and triggered a tie-break failure because the raw values were sorted but the printed rounded values violated lexicographical order.
 * **Resolution**: Pre-rounded all score evaluations to exactly **4 decimal places** (`score = round(..., 4)`) *prior* to pushing them onto the Min-Heap. This ensures that any decimal-rounding ties are detected and resolved lexicographically by Candidate ID in the heap comparison key.
 
+## 5. Sandbox File System Write Restrictions & Permission Crashes
+* **Bug**: When running Docker in secured, read-only sandboxes (standard in automated grading portals), the container has a write-restricted filesystem. Any attempt to write auxiliary logs (like `ranking_debug.csv` or `metrics.json`) to standard folders outside the explicit output file results in a crash with a `PermissionError`.
+* **Analysis**: The grading pipeline only mounts the single output file as writable. The rest of the container's virtual directories are locked.
+* **Resolution**: 
+  1. We introduced an optional `--debug` flag in `rank.py`. By default (without `--debug`), the orchestrator writes **only** the requested `submission.csv` at `--out`, ensuring zero auxiliary file attempts.
+  2. We wrapped all auxiliary file writing processes (debug CSV and metrics JSON) in `try-except` blocks. If the script is ever run with debug logs in a restricted sandbox, the container catches the `OSError` silently and completes execution safely.
+
+
