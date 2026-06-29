@@ -58,7 +58,7 @@ def stream_raw_lines(file_path):
             if line.strip():
                 yield line
 
-def select_top_candidates(candidates_path, output_csv_path, debug_csv_path):
+def select_top_candidates(candidates_path, output_csv_path, debug_csv_path=None, write_debug=False):
     """
     Ingests all candidates using a multiprocessing Pool, filters out honeypots/unqualified,
     scores and streams the top 100 candidates into a bounded Min-Heap,
@@ -140,40 +140,51 @@ def select_top_candidates(candidates_path, output_csv_path, debug_csv_path):
                 cand["reasoning"]
             ])
             
-    # 5. Write detailed debugging CSV
-    debug_path = Path(debug_csv_path)
-    debug_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    print(f"Writing recruiter detailed debug CSV to: {debug_csv_path}")
-    with open(debug_path, "w", encoding="utf-8", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow([
-            "candidate_id", "rank", "score", "location", 
-            "years_of_experience", "employer_type", "reasoning", 
-            "interview_probe_1", "interview_probe_2", "interview_probe_3"
-        ])
-        
-        for cand in top_100:
-            raw = cand["raw_candidate"]
-            profile = raw.get("profile", {})
-            career_history = raw.get("career_history", [])
+    # 5. Write detailed debugging CSV (only if debug mode is active)
+    if write_debug and debug_csv_path:
+        try:
+            debug_path = Path(debug_csv_path)
+            debug_path.parent.mkdir(parents=True, exist_ok=True)
             
-            probes = cand["probes"]
-            # Fill missing probes with blank space
-            while len(probes) < 3:
-                probes.append("")
+            print(f"Writing recruiter detailed debug CSV to: {debug_csv_path}")
+            with open(debug_path, "w", encoding="utf-8", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    "candidate_id", "rank", "score", "location", 
+                    "years_of_experience", "employer_type", "reasoning", 
+                    "interview_probe_1", "interview_probe_2", "interview_probe_3"
+                ])
                 
-            writer.writerow([
-                cand["candidate_id"],
-                cand["rank"],
-                f"{cand['score']:.4f}",
-                profile.get("location", ""),
-                profile.get("years_of_experience", 0.0),
-                classify_employer_history(career_history),
-                cand["reasoning"],
-                probes[0],
-                probes[1],
-                probes[2]
-            ])
+                for cand in top_100:
+                    raw = cand["raw_candidate"]
+                    profile = raw.get("profile", {})
+                    career_history = raw.get("career_history", [])
+                    
+                    probes = cand["probes"]
+                    # Fill missing probes with blank space
+                    while len(probes) < 3:
+                        probes.append("")
+                        
+                    writer.writerow([
+                        cand["candidate_id"],
+                        cand["rank"],
+                        f"{cand['score']:.4f}",
+                        profile.get("location", ""),
+                        profile.get("years_of_experience", 0.0),
+                        classify_employer_history(career_history),
+                        cand["reasoning"],
+                        probes[0],
+                        probes[1],
+                        probes[2]
+                    ])
+        except Exception:
+            pass
             
     print("Pipeline run completed successfully.")
+    return {
+        "total_parsed": count,
+        "passed_screening": count - screened_out,
+        "screened_out": screened_out,
+        "num_cores": num_cores
+    }
+

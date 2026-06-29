@@ -23,16 +23,16 @@ github_repo: "https://github.com/SrikanthMoreboina/The-Data-AI-Challenge---Hackt
 
 sandbox_link: "https://github.com/SrikanthMoreboina/The-Data-AI-Challenge---Hackthon"
 
-reproduce_command: "python rank.py --candidates ./datasets/[PUB] India_runs_data_and_ai_challenge/[PUB] India_runs_data_and_ai_challenge/India_runs_data_and_ai_challenge/candidates.jsonl --out ./outputs/submission.csv"
+reproduce_command: "python rank.py --candidates ./candidates.jsonl --out ./submission.csv"
 
 # ============================================================================
 # Compute environment
 # ============================================================================
 compute:
-  platform: "Local Intel Core i7 PC"
-  cpu_cores: 8
+  platform: "Local Intel Core PC"
+  cpu_cores: 12
   ram_gb: 16
-  python_version: "3.11.4"
+  python_version: "3.12.6"
   os: "Windows 11"
   uses_gpu_for_inference: false
   has_network_during_ranking: false
@@ -60,7 +60,8 @@ methodology_summary: |
   multipliers (experience sweet spot, location-willingness, product vs services classification, 
   and exponential activity decay). Includes log-scaled skill endorsements and capped durations 
   to suppress popularity bias, plus pedigree bonuses and GitHub coding seniority offset.
-  Runtime is under 20 seconds on single-threaded CPU.
+  Runtime is under 10 seconds parallelized on a 12-core CPU.
+
 
 # ============================================================================
 # Declarations
