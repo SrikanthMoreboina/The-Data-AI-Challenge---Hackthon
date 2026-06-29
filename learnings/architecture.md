@@ -8,33 +8,35 @@ Our solution represents a modular **Recruiter reasoning engine** rather than a s
 
 ```mermaid
 graph TD
-    JSONL[candidates.jsonl] -->|Line-by-line stream| Fetcher[resume_fetcher.py]
-    Fetcher -->|1. Parse and Normalise| Screener[resume_screener.py]
-    Screener -->|2. Filter Honeypots| Scorer[candidate_scorer.py]
-    Scorer -->|3. Evaluate Base Score & Multipliers| Prober[interview_prober.py]
-    Prober -->|4. Generate Factual Reasonings & Tailored Probes| Selector[final_selector.py]
-    Selector -->|5. Sort, Break Ties, and Export| OutCSV[submission.csv]
-    Selector -->|5. Export Recruiter Debrief Report| DebugCSV[ranking_debug.csv]
+    JSONL[candidates.jsonl / .gz] -->|1. Stream raw lines| Selector[final_selector.py]
+    Selector -->|2. Distribute to Workers| Workers[multiprocessing.Pool Workers]
+    Workers -->|3. Parse & Run screener.py| Screener[resume_screener.py]
+    Screener -->|4. Run scorer.py| Scorer[candidate_scorer.py]
+    Scorer -->|5. Return score & data| Selector
+    Selector -->|6. Centralized Heap & Sort| OutCSV[submission.csv]
+    Selector -->|7. Generate reasonings & probes| Prober[interview_prober.py]
+    Prober -->|8. Export detailed report| DebugCSV[ranking_debug.csv]
 ```
 
 ### 1. Requirements: `hiring_rubric.py`
-Defines the target qualifications for the Senior AI Engineer role (AI core skills, title weights, Pune/Noida target locations, experience Sweet spots, and IT consulting blocklists).
+Defines target qualifications for the Senior AI Engineer role (core skills, title weights, target hubs, experience curves, IT consulting blocklists, non-tech role blocklists, and learning context indicators).
 
-### 2. Ingestion: `resume_fetcher.py`
-Streams candidate objects line-by-line to maintain a constant memory profile. Normalizes text strings to lowercase and classifies the candidate's historical employers (Product vs. Services).
+### 2. Ingestion & Parallelization: `final_selector.py` & `resume_fetcher.py`
+Streams raw text lines from the candidate database (supporting plain `.jsonl` or compressed `.jsonl.gz`) to a `multiprocessing.Pool` of worker processes. This scales the candidate processing to utilize all available CPU cores.
 
 ### 3. Verification: `resume_screener.py`
-Inspects each profile for obvious disqualifications (such as overseas residents requiring visa sponsorship) and logical contradictions (trap profiles or honeypots).
+Worker processes parse candidate JSON profiles and audit them for honeypots (contradictory timelines, duration inconsistencies, and skill inflation). Any flagged profile is discarded immediately to prevent IPC overhead.
 
 ### 4. Evaluation: `candidate_scorer.py`
-Calculates technical base scores (max 100 points) and applies weight multipliers:
-- **Experience**: Curve peaked at 6–8 years.
-- **Location**: Noida/Pune residents and relocatable Tier-1 candidates.
-- **Employer**: Startups/Product company history favored.
-- **Availability**: Exponential platform engagement decay based on days since last active date.
+Worker processes evaluate candidate scores using a hybrid model:
+* **Log-scaled endorsements** and **capped skill durations** (24 months) to normalize popularity bias.
+* **GitHub active coding offset** to cancel experience penalties for senior candidates.
+* **Academic pedigree bonuses** (1.05 multiplier) for Tier-1 alumni.
+* Multipliers for local commutable locations, startup background, and exponential activity decay.
 
 ### 5. Interviewing: `interview_prober.py`
-Writes factual, non-templated reasoning strings for each shortlist candidate (referencing years, title, skills, and notice period). Also generates 2–3 tailored interview questions targeting candidate gaps.
+Composes natural, fact-based reasoning strings for the final shortlist by extracting specific company names and action achievements from their career histories (e.g. *"designed data pipelines at Google"*). Also tailors 2-3 interview probes targeting candidate gaps.
 
-### 6. Orchestration: `final_selector.py` & `rank.py`
-Runs the pipeline end-to-end, resolves equal score ties lexicographically by ascending candidate ID, slices the top 100 "selected employees", and writes the files.
+### 6. Orchestration: `rank.py`
+Starts the pipeline, measures runtime performance, and exports files. Resolves ties using a rounded 4-decimal sorting heap with Candidate ID ascending.
+

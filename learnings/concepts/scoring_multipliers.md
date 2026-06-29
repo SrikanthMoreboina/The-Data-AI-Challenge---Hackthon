@@ -46,3 +46,11 @@ We match their current city and relocation interest:
 * **Product Only**: Multiplier is `1.1`.
 * **Hybrid (mix of services and product)**: Multiplier is `0.8`.
 * **Services Only (TCS, Infosys, Wipro, etc.)**: Penalized with `0.1`.
+
+---
+
+## 5. Non-Tech Job Title & Learning Context Blocker
+To prevent simple keyword-stuffer profiles (like a graphic designer who adds "TensorFlow" once to their description) from ranking highly, we perform context auditing:
+1. **Title Blocklist**: If a career history job title matches a non-technical field (e.g. `marketing`, `sales`, `writer`, `hr specialist`, `designer`), we ignore all keyword matches in that job's details.
+2. **Learning Context Blocker**: If a matched technical keyword is surrounded by learning indicators (such as `tutorial`, `bootcamp`, `udemy`, `coursera`, `class project`, `toy project`), the match is marked as academic/classroom-only and no technical base points are awarded.
+

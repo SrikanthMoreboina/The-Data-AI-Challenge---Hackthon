@@ -26,16 +26,23 @@ While Spark is excellent for distributed datasets, utilizing it for this challen
 
 ---
 
-## Our Streaming Implementation
+## Our Parallel Streaming Implementation
 
-We use a Python generator containing a `yield` statement inside `resume_fetcher.py`:
+To achieve concurrent processing without losing the low-memory benefits of streaming, we combine standard generators with Python's `multiprocessing.Pool().imap()` streaming map:
 
 ```python
-def stream_candidates(file_path):
-    with open(file_path, "r", encoding="utf-8") as f:
+def stream_raw_lines(file_path):
+    with open_func(file_path) as f:
         for line in f:
             if line.strip():
-                yield json.loads(line)
+                yield line
+
+with multiprocessing.Pool(processes=num_cores) as pool:
+    results = pool.imap(process_single_candidate, stream_raw_lines(path), chunksize=1000)
+    for result in results:
+        # Pushes to Min-Heap in the main process
 ```
 
-In Python, `yield` pauses the function execution and returns the current line's candidate dictionary. In the next iteration, Python resumes the function, gets the next line, and garbage collects the previous one. This maintains constant space complexity ($O(1)$) and avoids JVM dependencies.
+* **Why this is optimal**: Instead of reading the full 465MB file into memory or pickling heavy dictionaries, the main process streams **raw text strings** to worker processes. 
+* **Lazy Evaluation**: `imap` processes the generator in chunks dynamically. This keeps memory usage bounded to $O(\text{num\_cores} \times \text{chunksize})$ instead of loading all 100K profiles into RAM, while saturating all available CPU cores.
+
