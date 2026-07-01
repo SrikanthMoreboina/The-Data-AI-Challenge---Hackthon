@@ -8,12 +8,12 @@ team_name: "Redrob AI Agent Recruiter Team"
 
 primary_contact:
   name: "Srikanth Moreboina"
-  email: "srikanth.moreboina@example.com"
-  phone: "+91-9999999999"
+  email: "srikanthmoreboina111@gmail.com"
+  phone: "7093039322"
 
 team_members:
   - name: "Srikanth Moreboina"
-    email: "srikanth.moreboina@example.com"
+    email: "srikanthmoreboina111@gmail.com"
     role: "System Designer & ML Engineer"
 
 # ============================================================================
@@ -21,7 +21,7 @@ team_members:
 # ============================================================================
 github_repo: "https://github.com/SrikanthMoreboina/The-Data-AI-Challenge---Hackthon"
 
-sandbox_link: "https://github.com/SrikanthMoreboina/The-Data-AI-Challenge---Hackthon"
+sandbox_link: "https://github.com/SrikanthMoreboina/The-Data-AI-Challenge---Hackthon#🐳-running-with-docker-isolated-sandbox"
 
 reproduce_command: "python rank.py --candidates ./candidates.jsonl --out ./submission.csv"
 

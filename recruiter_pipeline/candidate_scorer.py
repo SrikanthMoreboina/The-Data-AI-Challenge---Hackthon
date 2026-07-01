@@ -118,8 +118,8 @@ def calculate_base_score(candidate):
 
 def calculate_multipliers(candidate):
     """
-    Computes all weight multipliers (Experience, Location, Employer, and Availability).
-    Returns (M_exp, M_loc, M_emp, M_avail)
+    Computes all weight multipliers (Experience, Location, Employer, Availability, and Behavior).
+    Returns (M_exp, M_loc, M_emp, M_avail, M_behavior)
     """
     profile = candidate.get("profile", {})
     signals = candidate.get("redrob_signals", {})
@@ -186,22 +186,71 @@ def calculate_multipliers(candidate):
     
     M_avail = R_factor * A_factor
     
-    return M_exp, M_loc, M_emp, M_avail
+    # --- E. Platform Behavioral Signals Multiplier ---
+    M_behavior = 1.0
+    
+    # 1. Open to work flag (1.1 boost if active job seeker)
+    if signals.get("open_to_work_flag", False):
+        M_behavior *= 1.1
+        
+    # 2. Profile completeness (up to 5% boost for highly complete profiles)
+    completeness = signals.get("profile_completeness_score", 100.0)
+    M_behavior *= (1.0 + 0.05 * (completeness / 100.0))
+    
+    # 3. Verified contact credentials (up to 2% boost for verifications)
+    email_ver = signals.get("verified_email", False)
+    phone_ver = signals.get("verified_phone", False)
+    contact_boost = 1.0
+    if email_ver: contact_boost += 0.01
+    if phone_ver: contact_boost += 0.01
+    M_behavior *= contact_boost
+    
+    # 4. Recruiter saves in last 30 days (log-scaled count boost, capped max +10%)
+    saved_count = signals.get("saved_by_recruiters_30d", 0)
+    if saved_count > 0:
+        M_behavior *= (1.0 + min(0.1, 0.03 * math.log2(1 + saved_count)))
+        
+    # 5. Reliability: Interview completion rate
+    inter_rate = signals.get("interview_completion_rate", 1.0)
+    M_behavior *= (0.9 + 0.1 * inter_rate)
+    
+    # 6. Offer acceptance rate (-1 if no history, otherwise linear scale)
+    offer_rate = signals.get("offer_acceptance_rate", -1.0)
+    if offer_rate >= 0:
+        M_behavior *= (0.95 + 0.05 * offer_rate)
+        
+    # 7. Redrob Skill Assessment scores
+    assessment_scores = signals.get("skill_assessment_scores", {})
+    if assessment_scores:
+        scores_list = list(assessment_scores.values())
+        if scores_list:
+            avg_assessment = sum(scores_list) / len(scores_list)
+            M_behavior *= (1.0 + 0.05 * (avg_assessment / 100.0))
+            
+    # 8. Salary Fit: Cap budget at 50 LPA expected min salary
+    expected_salary = signals.get("expected_salary_range_inr_lpa", {})
+    if expected_salary:
+        min_salary = expected_salary.get("min", 0.0)
+        if min_salary > 50.0:
+            # Scale down linearly for candidates who exceed our target budget limits
+            M_behavior *= max(0.5, 50.0 / min_salary)
+            
+    return M_exp, M_loc, M_emp, M_avail, M_behavior
 
 def evaluate_candidate_score(candidate):
     """
     Evaluates and calculates the final normalized match score (0.0 to 1.0)
-    for a candidate profile, incorporating Tier-1 academic bonus.
+    for a candidate profile, incorporating Tier-1 academic bonus and Redrob behavioral signals.
     """
     base_score = calculate_base_score(candidate)
-    M_exp, M_loc, M_emp, M_avail = calculate_multipliers(candidate)
+    M_exp, M_loc, M_emp, M_avail, M_behavior = calculate_multipliers(candidate)
     
     # --- E. Pedigree Modifier ---
     education = candidate.get("education", [])
     has_tier_1 = any(edu.get("tier") == "tier_1" for edu in education)
     M_pedigree = 1.05 if has_tier_1 else 1.0
     
-    final_score = base_score * M_exp * M_loc * M_emp * M_avail * M_pedigree
+    final_score = base_score * M_exp * M_loc * M_emp * M_avail * M_pedigree * M_behavior
     
     # Normalize score between 0.0 and 1.0 (base score is out of 100 max)
     normalized_score = final_score / 100.0

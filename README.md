@@ -93,7 +93,7 @@ docker run -v "${PWD}:/app/workspace" redrob-ranker --candidates /app/workspace/
 * **Dataset Size**: 100,000 candidate profiles.
 * **Screened Out / Honeypots**: 19,847 candidates.
 * **Execution Time (Single-Process)**: **~38 seconds**.
-* **Execution Time (Parallel worker Pool)**: **7.5 - 9.0 seconds** (Tested on 12-core CPU).
-* **Ingestion Throughput**: **11,000+ candidates / second**.
-* **RAM Footprint**: **< 20 MB** (Constant memory bounded by streaming queue).
+* **Execution Time (Parallel worker Pool)**: **7.5 - 15.0 seconds** (Depending on CPU core count).
+* **Ingestion Throughput**: **6,500 - 11,000+ candidates / second**.
+* **RAM Footprint**: **~50 - 150 MB** (Well within the 16 GB sandbox limit; bounded by process worker spawning and 1000-line chunk allocations).
 

@@ -97,12 +97,24 @@ def generate_reasoning(candidate, score):
     cid_num = int(candidate.get("candidate_id", "CAND_0000000").split("_")[1])
     struct_type = cid_num % 3
     
+    # Factual location claim to prevent manual-review risk
+    city_lower = city.lower()
+    is_in_hub = any(hub in city_lower for hub in ["noida", "pune"])
+    willing_relocate = signals.get("willing_to_relocate", False)
+    
+    if is_in_hub:
+        loc_claim = f"locally commutable in {city}"
+    elif willing_relocate:
+        loc_claim = f"relocatable from {city}"
+    else:
+        loc_claim = f"located in {city}"
+        
     if struct_type == 0:
         if company:
             reason = f"{title} with {years:.1f} years of experience; recently {action} at {company}."
         else:
             reason = f"{title} with {years:.1f} years of experience; recently {action}."
-        reason += f" Strong fit in {skills_str} based in {city}."
+        reason += f" Strong fit in {skills_str} ({loc_claim})."
         if notice > 30:
             reason += f" Notice period of {notice} days is a concern."
             
@@ -111,14 +123,14 @@ def generate_reasoning(candidate, score):
             reason = f"Excellent background as {title} for {years:.1f} years, including experience where they {action} at {company}."
         else:
             reason = f"Excellent background as {title} for {years:.1f} years, focusing on how they {action}."
-        reason += f" Strong match in {skills_str} commutable/relocatable to Noida/Pune."
+        reason += f" Strong match in {skills_str} ({loc_claim} to Noida/Pune)."
             
     else:
         if company:
             reason = f"Experienced {title} ({years:.1f} yrs) who has {action} at {company}."
         else:
             reason = f"Experienced {title} ({years:.1f} yrs) who has {action}."
-        reason += f" Matches role requirements in {skills_str}."
+        reason += f" Matches role requirements in {skills_str} ({loc_claim})."
         if notice <= 15:
             reason += f" Strong availability with quick {notice}-day notice period."
             

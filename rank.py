@@ -8,6 +8,7 @@ Usage:
 
 import argparse
 import time
+from pathlib import Path
 from recruiter_pipeline.final_selector import select_top_candidates
 
 def main():
@@ -37,8 +38,9 @@ def main():
     print("      RECRUITMENT AGENCY ENGINE: PIPELINE START      ")
     print("====================================================")
     
-    # Establish a default debug report output path in the outputs/ folder
-    debug_csv_path = "outputs/ranking_debug.csv"
+    # Resolve auxiliary paths dynamically relative to the --out file directory
+    out_parent = Path(args.out).parent
+    debug_csv_path = out_parent / "ranking_debug.csv"
     
     import json
     import platform
@@ -93,7 +95,7 @@ def main():
             }
         }
         
-        metrics_path = "outputs/metrics.json"
+        metrics_path = out_parent / "metrics.json"
         try:
             with open(metrics_path, "w", encoding="utf-8") as f:
                 json.dump(metrics_data, f, indent=2)
