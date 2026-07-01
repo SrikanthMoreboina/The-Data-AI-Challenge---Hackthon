@@ -55,11 +55,19 @@ To run the ranker cleanly, generating **only** the required `submission.csv` (10
 ```bash
 python rank.py --candidates ./candidates.jsonl --out ./submission.csv
 ```
+*(Note: If running locally on this repository's structure, run the command pointing to the local dataset path:)*
+```bash
+python rank.py --candidates "datasets/[PUB] India_runs_data_and_ai_challenge/[PUB] India_runs_data_and_ai_challenge/India_runs_data_and_ai_challenge/candidates.jsonl" --out outputs/submission.csv
+```
 
 #### 2. Running with Debug Diagnostics
 To generate the full recruiter debug report (`outputs/ranking_debug.csv`) and execution logs (`outputs/metrics.json`), append the `--debug` flag:
 ```bash
 python rank.py --candidates ./candidates.jsonl --out ./submission.csv --debug
+```
+*(Note: If running locally on this repository's structure with debug diagnostics:)*
+```bash
+python rank.py --candidates "datasets/[PUB] India_runs_data_and_ai_challenge/[PUB] India_runs_data_and_ai_challenge/India_runs_data_and_ai_challenge/candidates.jsonl" --out outputs/submission.csv --debug
 ```
 
 #### 3. Validating Output format
